@@ -1,0 +1,10 @@
+/** Small pill used by all status badges. */
+export default function Badge({ className = '', children }) {
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${className}`}
+    >
+      {children}
+    </span>
+  )
+}

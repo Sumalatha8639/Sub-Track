@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:mysql://localhost:3306/subtrack_test?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:subtrack}
+    password: ${DB_PASSWORD:subtrack}
+  flyway:
+    # Tests start from an empty schema every run
+    clean-disabled: false
+
+app:
+  reminders:
+    # Don't depend on the time of day the tests run
+    send-hour: -1

@@ -1,0 +1,16 @@
+package com.subtrack.exception;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import java.time.Instant;
+import java.util.Map;
+
+/** Standard error body returned by every endpoint. */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record ApiError(
+        Instant timestamp,
+        int status,
+        String error,
+        String message,
+        String path,
+        Map<String, String> fieldErrors) {
+}

@@ -1,0 +1,108 @@
+# Runs on every push and pull request (free for public repositories).
+# No Docker anywhere: GitHub's Ubuntu runners come with MySQL installed (root / root),
+# so each job just starts it and creates the database and user.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (unit + integration tests, coverage)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the runner's MySQL
+        run: |
+          sudo systemctl start mysql.service
+          mysql -uroot -proot -e "
+            CREATE DATABASE subtrack_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+            CREATE USER 'subtrack'@'localhost' IDENTIFIED BY 'subtrack';
+            CREATE USER 'subtrack'@'127.0.0.1' IDENTIFIED BY 'subtrack';
+            GRANT ALL PRIVILEGES ON subtrack_test.* TO 'subtrack'@'localhost';
+            GRANT ALL PRIVILEGES ON subtrack_test.* TO 'subtrack'@'127.0.0.1';
+            FLUSH PRIVILEGES;"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build, test and check coverage
+        run: chmod +x mvnw && ./mvnw -B verify
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco
+
+  frontend:
+    name: Frontend (lint, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  api:
+    name: API tests (Postman collection against a running backend)
+    needs: backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the runner's MySQL
+        run: |
+          sudo systemctl start mysql.service
+          mysql -uroot -proot -e "
+            CREATE DATABASE subtrack CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+            CREATE USER 'subtrack'@'localhost' IDENTIFIED BY 'subtrack';
+            CREATE USER 'subtrack'@'127.0.0.1' IDENTIFIED BY 'subtrack';
+            GRANT ALL PRIVILEGES ON subtrack.* TO 'subtrack'@'localhost';
+            GRANT ALL PRIVILEGES ON subtrack.* TO 'subtrack'@'127.0.0.1';
+            FLUSH PRIVILEGES;"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build backend
+        working-directory: backend
+        run: chmod +x mvnw && ./mvnw -B -q package -DskipTests
+      - name: Start backend
+        working-directory: backend
+        # No mail server here: verification emails fail and are only logged, which is fine for API tests
+        run: |
+          nohup java -jar target/subtrack-backend-*.jar > backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8080/actuator/health && exit 0
+            sleep 2
+          done
+          cat backend.log
+          exit 1
+      - name: Install Postman CLI
+        run: curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+      - name: Run collection
+        run: >-
+          postman collection run postman/SubTrack.postman_collection.json
+          -e postman/SubTrack.local.postman_environment.json
+          --report-events=false --output postman-report
+      - name: Upload API test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-report
+          path: postman-report

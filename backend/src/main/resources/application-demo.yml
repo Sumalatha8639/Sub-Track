@@ -1,0 +1,8 @@
+# Client demo profile: sample data (DemoDataSeeder) and reminders that go out at any hour,
+# so scripts/run-jobs.ps1 shows reminder emails in Mailpit whenever the demo happens.
+app:
+  reminders:
+    send-hour: -1
+  demo:
+    # Rebuild the demo account fresh on every start (consistent client demos)
+    reset-on-start: true

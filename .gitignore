@@ -1,0 +1,23 @@
+# Local tools and data (portable MySQL, Mailpit)
+.tools/
+
+# Secrets
+.env
+*.env.local
+
+# Backend
+backend/target/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Browser screenshots taken while checking the UI
+.playwright-mcp/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
